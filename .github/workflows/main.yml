@@ -1,0 +1,38 @@
+name: Build Silakka54 Vial Firmware
+on:
+  workflow_dispatch:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your repo
+        uses: actions/checkout@v4
+        with:
+          path: user_repo
+
+      - name: Checkout vial-qmk
+        uses: actions/checkout@v4
+        with:
+          repository: vial-kb/vial-qmk
+          submodules: recursive
+          path: vial-qmk
+
+      - name: Copy Silakka54 files to vial-qmk
+        run: |
+          # 自动定位你修改后的 silakka54 键盘目录并拷入编译环境
+          KEYB_PATH=$(find user_repo -type d -name "silakka54" | head -n 1)
+          cp -r "$KEYB_PATH" vial-qmk/keyboards/
+
+      - name: Compile Firmware
+        uses: qmk/qmk_action@v0.2
+        with:
+          qmk_dir: vial-qmk
+          keyboard: silakka54
+          keymap: vial
+
+      - name: Upload UF2 Firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: silakka54_custom_uf2
+          path: vial-qmk/*.uf2
