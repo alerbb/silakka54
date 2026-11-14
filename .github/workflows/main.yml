@@ -14,7 +14,6 @@ jobs:
           git config --global --add safe.directory '*'
           git clone --depth 1 --recurse-submodules https://github.com/vial-kb/vial-qmk.git /vial-qmk
           
-          # 如果 vial-qmk 中没有内置 silakka54，则从作者仓库精准提取固件源码
           if [ ! -d "/vial-qmk/keyboards/silakka54" ]; then
             git clone --depth 1 https://github.com/Squalius-cephalus/silakka54.git /tmp/silakka
             KEYB_SRC=$(find /tmp/silakka -type f \( -name "info.json" -o -name "keyboard.json" \) | head -n 1 | xargs dirname)
@@ -31,7 +30,6 @@ jobs:
           vial_dir = os.path.join(kb_dir, "keymaps", "vial")
           default_dir = os.path.join(kb_dir, "keymaps", "default")
 
-          # 确保 vial 目录存在，并保留原有的 vial.json 和 config.h
           if not os.path.exists(vial_dir):
               if os.path.exists(default_dir):
                   shutil.copytree(default_dir, vial_dir)
@@ -48,7 +46,7 @@ jobs:
           #include QMK_KEYBOARD_H
 
           enum custom_keycodes {
-              MC_0 = QK_KB_0,
+              CUSTOM_M0 = QK_KB_0,
           };
 
           const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -62,7 +60,7 @@ jobs:
               [1] = LAYOUT(
                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
                   KC_GRV,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_VOLD, KC_TRNS, KC_VOLU, KC_TRNS, KC_TRNS, KC_DEL,
-                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_LBRC, KC_EQL,                    KC_LEFT, KC_DOWN, KC_UP,   KC_RGHT, MC_0,    KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_LBRC, KC_EQL,                    KC_LEFT, KC_DOWN, KC_UP,   KC_RGHT, CUSTOM_M0, KC_TRNS,
                   KC_LSFT, KC_TRNS, KC_TRNS, KC_TRNS, KC_RBRC, KC_MINS,                   KC_BTN2, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
                                              KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS
               ),
@@ -84,7 +82,7 @@ jobs:
 
           bool process_record_user(uint16_t keycode, keyrecord_t *record) {
               switch (keycode) {
-                  case MC_0:
+                  case CUSTOM_M0:
                       if (record->event.pressed) {
                           tap_code(KC_BSPC);
                           tap_code(KC_SLSH);
