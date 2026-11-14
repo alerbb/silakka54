@@ -9,35 +9,42 @@ jobs:
     container:
       image: ghcr.io/qmk/qmk_cli:latest
     steps:
-      - name: Clone vial-qmk and silakka54 source
+      - name: Clone vial-qmk and locate silakka54
         run: |
           git config --global --add safe.directory '*'
           git clone --depth 1 --recurse-submodules https://github.com/vial-kb/vial-qmk.git /vial-qmk
           
-          # 如果 vial-qmk 官方库里还没有内置 silakka54，则自动拉取硬件定义
+          # 如果 vial-qmk 中没有内置 silakka54，则从作者仓库精准提取固件源码
           if [ ! -d "/vial-qmk/keyboards/silakka54" ]; then
-            git clone https://github.com/Squalius-cephalus/silakka54.git /tmp/silakka
-            FOUND_DIR=$(find /tmp/silakka -type f -name "info.json" -o -name "keyboard.json" | head -n 1 | xargs dirname)
-            if [ -n "$FOUND_DIR" ]; then
-              mkdir -p /vial-qmk/keyboards/silakka54
-              cp -r "$FOUND_DIR"/* /vial-qmk/keyboards/silakka54/
-            fi
+            git clone --depth 1 https://github.com/Squalius-cephalus/silakka54.git /tmp/silakka
+            KEYB_SRC=$(find /tmp/silakka -type f \( -name "info.json" -o -name "keyboard.json" \) | head -n 1 | xargs dirname)
+            mkdir -p /vial-qmk/keyboards/silakka54
+            cp -r "$KEYB_SRC"/* /vial-qmk/keyboards/silakka54/
           fi
 
-      - name: Inject Custom Keymap and Rules
+      - name: Inject Custom Keymap Safely
         run: |
-          KEYMAP_DIR="/vial-qmk/keyboards/silakka54/keymaps/vial"
-          mkdir -p "$KEYMAP_DIR"
+          python3 - << 'PYEOF'
+          import os, shutil
 
-          cat << 'EOF' > "$KEYMAP_DIR/rules.mk"
-          VIA_ENABLE = yes
+          kb_dir = "/vial-qmk/keyboards/silakka54"
+          vial_dir = os.path.join(kb_dir, "keymaps", "vial")
+          default_dir = os.path.join(kb_dir, "keymaps", "default")
+
+          # 确保 vial 目录存在，并保留原有的 vial.json 和 config.h
+          if not os.path.exists(vial_dir):
+              if os.path.exists(default_dir):
+                  shutil.copytree(default_dir, vial_dir)
+              else:
+                  os.makedirs(vial_dir, exist_ok=True)
+
+          rules_content = """VIA_ENABLE = yes
           VIAL_ENABLE = yes
           MOUSEKEY_ENABLE = yes
           BOOTMAGIC_ENABLE = no
-          EOF
+          """
 
-          cat << 'EOF' > "$KEYMAP_DIR/keymap.c"
-          // SPDX-License-Identifier: GPL-2.0-or-later
+          keymap_content = """// SPDX-License-Identifier: GPL-2.0-or-later
           #include QMK_KEYBOARD_H
 
           enum custom_keycodes {
@@ -90,7 +97,14 @@ jobs:
               }
               return true;
           }
-          EOF
+          """
+
+          with open(os.path.join(vial_dir, "rules.mk"), "w") as f:
+              f.write("\n".join(line.strip() for line in rules_content.strip().splitlines()) + "\n")
+
+          with open(os.path.join(vial_dir, "keymap.c"), "w") as f:
+              f.write("\n".join(line[10:] if line.startswith("          ") else line for line in keymap_content.strip().splitlines()) + "\n")
+          PYEOF
 
       - name: Compile Firmware
         run: |
