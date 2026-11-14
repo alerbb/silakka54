@@ -2,37 +2,105 @@ name: Build Silakka54 Vial Firmware
 on:
   workflow_dispatch:
   push:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/qmk/qmk_cli:latest
     steps:
-      - name: Checkout your repo
-        uses: actions/checkout@v4
-        with:
-          path: user_repo
-
-      - name: Checkout vial-qmk
-        uses: actions/checkout@v4
-        with:
-          repository: vial-kb/vial-qmk
-          submodules: recursive
-          path: vial-qmk
-
-      - name: Copy Silakka54 files to vial-qmk
+      - name: Clone vial-qmk and silakka54 source
         run: |
-          # 自动定位你修改后的 silakka54 键盘目录并拷入编译环境
-          KEYB_PATH=$(find user_repo -type d -name "silakka54" | head -n 1)
-          cp -r "$KEYB_PATH" vial-qmk/keyboards/
+          git config --global --add safe.directory '*'
+          git clone --depth 1 --recurse-submodules https://github.com/vial-kb/vial-qmk.git /vial-qmk
+          
+          # 如果 vial-qmk 官方库里还没有内置 silakka54，则自动拉取硬件定义
+          if [ ! -d "/vial-qmk/keyboards/silakka54" ]; then
+            git clone https://github.com/Squalius-cephalus/silakka54.git /tmp/silakka
+            FOUND_DIR=$(find /tmp/silakka -type f -name "info.json" -o -name "keyboard.json" | head -n 1 | xargs dirname)
+            if [ -n "$FOUND_DIR" ]; then
+              mkdir -p /vial-qmk/keyboards/silakka54
+              cp -r "$FOUND_DIR"/* /vial-qmk/keyboards/silakka54/
+            fi
+          fi
+
+      - name: Inject Custom Keymap and Rules
+        run: |
+          KEYMAP_DIR="/vial-qmk/keyboards/silakka54/keymaps/vial"
+          mkdir -p "$KEYMAP_DIR"
+
+          cat << 'EOF' > "$KEYMAP_DIR/rules.mk"
+          VIA_ENABLE = yes
+          VIAL_ENABLE = yes
+          MOUSEKEY_ENABLE = yes
+          BOOTMAGIC_ENABLE = no
+          EOF
+
+          cat << 'EOF' > "$KEYMAP_DIR/keymap.c"
+          // SPDX-License-Identifier: GPL-2.0-or-later
+          #include QMK_KEYBOARD_H
+
+          enum custom_keycodes {
+              MC_0 = QK_KB_0,
+          };
+
+          const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+              [0] = LAYOUT(
+                  KC_LSFT, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,                      KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_RSFT,
+                  KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,                      KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_SLSH,
+                  KC_ESC,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,                      KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
+                  KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                      KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_BSLS, KC_F17,
+                                             KC_LGUI, KC_SPC,  KC_ENT,                    KC_BSPC, LT(1,KC_NO), KC_LALT
+              ),
+              [1] = LAYOUT(
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_GRV,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_VOLD, KC_TRNS, KC_VOLU, KC_TRNS, KC_TRNS, KC_DEL,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_LBRC, KC_EQL,                    KC_LEFT, KC_DOWN, KC_UP,   KC_RGHT, MC_0,    KC_TRNS,
+                  KC_LSFT, KC_TRNS, KC_TRNS, KC_TRNS, KC_RBRC, KC_MINS,                   KC_BTN2, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                                             KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS
+              ),
+              [2] = LAYOUT(
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                                             KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS
+              ),
+              [3] = LAYOUT(
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                                             KC_TRNS, KC_TRNS, KC_TRNS,                   KC_TRNS, KC_TRNS, KC_TRNS
+              )
+          };
+
+          bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+              switch (keycode) {
+                  case MC_0:
+                      if (record->event.pressed) {
+                          tap_code(KC_BSPC);
+                          tap_code(KC_SLSH);
+                          tap_code(KC_SPC);
+                          register_code(KC_LGUI);
+                          tap_code(KC_LEFT);
+                          unregister_code(KC_LGUI);
+                      }
+                      return false;
+              }
+              return true;
+          }
+          EOF
 
       - name: Compile Firmware
-        uses: qmk/qmk_action@v0.2
-        with:
-          qmk_dir: vial-qmk
-          keyboard: silakka54
-          keymap: vial
+        run: |
+          cd /vial-qmk
+          make silakka54:vial
+          mkdir -p ${{ github.workspace }}/output
+          cp /vial-qmk/*.uf2 ${{ github.workspace }}/output/
 
       - name: Upload UF2 Firmware
         uses: actions/upload-artifact@v4
         with:
           name: silakka54_custom_uf2
-          path: vial-qmk/*.uf2
+          path: ${{ github.workspace }}/output/*.uf2
