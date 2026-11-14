@@ -1,3 +1,4 @@
+NorNen3+
 name: Build Silakka54 Vial Firmware
 on:
   workflow_dispatch:
@@ -106,13 +107,13 @@ jobs:
 
       - name: Compile Firmware
         run: |
-          cd /vial-qmk
-          make silakka54:vial
-          mkdir -p ${{ github.workspace }}/output
-          cp /vial-qmk/*.uf2 ${{ github.workspace }}/output/
+          mkdir -p output
+          make -C /vial-qmk silakka54:vial
+          find /vial-qmk -maxdepth 2 -name "*.uf2" -exec cp {} output/ \;
+          ls -lh output/
 
       - name: Upload UF2 Firmware
         uses: actions/upload-artifact@v4
         with:
           name: silakka54_custom_uf2
-          path: ${{ github.workspace }}/output/*.uf2
+          path: output/*.uf2
