@@ -1,4 +1,3 @@
-NorNen3+
 name: Build Silakka54 Vial Firmware
 on:
   workflow_dispatch:
